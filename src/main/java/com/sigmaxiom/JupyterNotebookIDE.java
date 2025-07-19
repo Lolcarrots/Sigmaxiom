@@ -306,21 +306,6 @@ public class JupyterNotebookIDE extends JFrame implements KernelStatusListener {
             
             if (selectedKernel.equals("Python (Direct)") && useDirectMethod) {
                 
-                if (selectedEnvPath == null || selectedEnvPath.trim().isEmpty()) {
-                    throw new Exception("No Python environment selected. Please select a valid virtual environment.");
-                }
-                
-                File envDir = new File(selectedEnvPath);
-                if (!envDir.exists() || !envDir.isDirectory()) {
-                    throw new Exception("Selected environment path does not exist: " + selectedEnvPath);
-                }
-                
-                File activateScript = new File(envDir, "bin/activate");
-                if (!activateScript.exists()) {
-                    throw new Exception("Selected directory is not a valid Python virtual environment: " + selectedEnvPath);
-                }
-                
-                
                 System.out.println("Starting Python kernel with direct method using environment: " + selectedEnvPath);
                 sharedKernel = JupyterKernelClient.startPythonKernelDirectly(selectedEnvPath);
                 usingDirectMethod = true;
@@ -329,12 +314,14 @@ public class JupyterNotebookIDE extends JFrame implements KernelStatusListener {
                 System.out.println("Starting " + selectedKernel + " kernel with standard method");
                 
                 
-                String kernelSpecName = findKernelSpecName(selectedKernel);
+                
+                String kernelSpecName = findKernelSpecName(selectedKernel); 
                 if (kernelSpecName == null) {
                     throw new Exception("Kernel spec not found for: " + selectedKernel);
                 }
                 
-                sharedKernel = JupyterKernelClient.startKernel(kernelSpecName);
+                
+                sharedKernel = JupyterKernelClient.startKernel(kernelSpecName, this.selectedEnvPath);
                 usingDirectMethod = false;
             }
             
@@ -404,7 +391,8 @@ public class JupyterNotebookIDE extends JFrame implements KernelStatusListener {
     }
     
     private String findKernelSpecName(String displayName) {
-        Map<String, JupyterKernelClient.KernelSpec> kernels = JupyterKernelClient.discoverKernels();
+        
+        Map<String, JupyterKernelClient.KernelSpec> kernels = JupyterKernelClient.discoverKernels(this.selectedEnvPath);
         
         for (Map.Entry<String, JupyterKernelClient.KernelSpec> entry : kernels.entrySet()) {
             if (entry.getValue().getDisplayName().equals(displayName)) {
@@ -1329,7 +1317,8 @@ public class JupyterNotebookIDE extends JFrame implements KernelStatusListener {
         kernelMenu.removeAll();
         
         
-        Map<String, JupyterKernelClient.KernelSpec> kernels = JupyterKernelClient.discoverKernels();
+        
+        Map<String, JupyterKernelClient.KernelSpec> kernels = JupyterKernelClient.discoverKernels(this.selectedEnvPath);
         
         if (kernels.isEmpty()) {
             JMenuItem noKernelsItem = new JMenuItem("No kernels found");
@@ -1355,7 +1344,7 @@ public class JupyterNotebookIDE extends JFrame implements KernelStatusListener {
 
         try {
             
-            JupyterKernelClient newKernelClient = JupyterKernelClient.startKernel(kernelName);
+            JupyterKernelClient newKernelClient = JupyterKernelClient.startKernel(kernelName, this.selectedEnvPath);
             newKernelClient.setStatusListener(JupyterNotebookIDE.this);
             
             
@@ -1931,7 +1920,7 @@ public class JupyterNotebookIDE extends JFrame implements KernelStatusListener {
                 JupyterKernelClient newClient = usingDirectMethod ?
                     
                     JupyterKernelClient.startPythonKernelDirectly(selectedEnvPath) :
-                    JupyterKernelClient.startKernel("python3");
+                    JupyterKernelClient.startKernel("python3", selectedEnvPath);
                 
                 
                 kernelClients.put(kernelIdToRestart, newClient);
@@ -2128,7 +2117,7 @@ public class JupyterNotebookIDE extends JFrame implements KernelStatusListener {
                     
                     return JupyterKernelClient.startPythonKernelDirectly(selectedEnvPath); 
                 } else {
-                    return JupyterKernelClient.startKernel("python3");
+                    return JupyterKernelClient.startKernel("python3", selectedEnvPath);
                 }
             }
 
@@ -2617,8 +2606,6 @@ public class JupyterNotebookIDE extends JFrame implements KernelStatusListener {
             header.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 14));
             
             
-            populateKernelTable();
-            
             JScrollPane scrollPane = new JScrollPane(kernelTable);
             scrollPane.setBackground(new Color(13, 13, 35));
             scrollPane.setBorder(BorderFactory.createLineBorder(new Color(40, 40, 100), 1));
@@ -2794,6 +2781,7 @@ public class JupyterNotebookIDE extends JFrame implements KernelStatusListener {
                     }
                 }
             });
+            populateKernelTable();
         }
         
         private void populateKernelTable() {
@@ -2808,7 +2796,10 @@ public class JupyterNotebookIDE extends JFrame implements KernelStatusListener {
             });
             
             
-            Map<String, JupyterKernelClient.KernelSpec> kernels = JupyterKernelClient.discoverKernels();
+            String envPath = envPathField.getText().trim();
+            
+            
+            Map<String, JupyterKernelClient.KernelSpec> kernels = JupyterKernelClient.discoverKernels(envPath);
             
             for (Map.Entry<String, JupyterKernelClient.KernelSpec> entry : kernels.entrySet()) {
                 JupyterKernelClient.KernelSpec spec = entry.getValue();
@@ -2856,16 +2847,17 @@ public class JupyterNotebookIDE extends JFrame implements KernelStatusListener {
             if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
                 File selectedDir = fileChooser.getSelectedFile();
                 
-                
                 File activateScript = new File(selectedDir, "bin/activate");
                 File pythonBin = new File(selectedDir, "bin/python");
-                
-                if (activateScript.exists() && pythonBin.exists()) {
+                File python3Bin = new File(selectedDir, "bin/python3");
+
+                if (activateScript.exists() && (pythonBin.exists() || python3Bin.exists())) {
                     envPathField.setText(selectedDir.getAbsolutePath());
+                    populateKernelTable();
                 } else {
                     JOptionPane.showMessageDialog(this,
                         "The selected directory does not appear to be a valid Python virtual environment.\n" +
-                        "Please select a directory containing 'bin/activate' and 'bin/python'.",
+                        "It must contain 'bin/activate' and either 'bin/python' or 'bin/python3'.", 
                         "Invalid Environment",
                         JOptionPane.ERROR_MESSAGE);
                 }
@@ -9325,3 +9317,4 @@ abstract class ErrorChecker {
                 }));
         }
     }
+

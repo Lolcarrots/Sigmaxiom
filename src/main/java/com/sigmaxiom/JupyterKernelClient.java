@@ -24,6 +24,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.io.InputStream;
+import java.io.IOException;
 
 interface KernelStatusListener {
     void onStatusChange(String status);
@@ -255,12 +256,16 @@ public class JupyterKernelClient {
     
     private String processIoPubMessage(ZMQ.Socket socket, String currentMsgId) {
         try {
-            String delimiter = socket.recvStr();
+            
+            byte[] identity = socket.recv(0); 
+            String delimiter = socket.recvStr(); 
             if (!"<IDS|MSG>".equals(delimiter)) return "";
-            String headerStr = socket.recvStr();
+
+            String signature = socket.recvStr(); 
+            String headerStr = socket.recvStr(); 
             JSONObject header = new JSONObject(headerStr);
             String msgType = header.getString("msg_type");
-            String parentHeaderStr = socket.recvStr();
+            String parentHeaderStr = socket.recvStr(); 
             JSONObject parentHeader = new JSONObject(parentHeaderStr);
             
             
@@ -269,7 +274,8 @@ public class JupyterKernelClient {
                 return null;
             }
             
-            String contentStr = socket.recvStr();
+            String metadataStr = socket.recvStr(); 
+            String contentStr = socket.recvStr(); 
             JSONObject content = new JSONObject(contentStr);
 
             
@@ -308,20 +314,34 @@ public class JupyterKernelClient {
     }
     
     
-    public static Map<String, KernelSpec> discoverKernels() {
+    public static Map<String, KernelSpec> discoverKernels(String envPath) {
         Map<String, KernelSpec> kernels = new HashMap<>();
+        
+        
+        if (envPath == null || envPath.trim().isEmpty()) {
+            return kernels;
+        }
         
         try {
             
+            String jupyterPath = new File(envPath, "bin/jupyter").getAbsolutePath();
+
+            
+            if (!new File(jupyterPath).exists()) {
+                
+                return kernels;
+            }
+
             ProcessBuilder pb = new ProcessBuilder(
-                "/home/nick/myenv/bin/jupyter", "kernelspec", "list", "--json"
+                jupyterPath, "kernelspec", "list", "--json"
             );
             
             
             Map<String, String> env = pb.environment();
-            String path = env.get("PATH");
-            env.put("PATH", "/home/nick/myenv/bin:" + (path != null ? path : ""));
+            env.put("VIRTUAL_ENV", envPath); 
             
+            env.put("PATH", new File(envPath, "bin").getAbsolutePath() + File.pathSeparator + env.get("PATH"));
+
             Process process = pb.start();
             
             
@@ -333,9 +353,20 @@ public class JupyterKernelClient {
             }
             
             
+            int exitCode = process.waitFor();
+            if (exitCode != 0) {
+                
+                BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+                StringBuilder errorOutput = new StringBuilder();
+                while ((line = errorReader.readLine()) != null) {
+                    errorOutput.append(line);
+                }
+                throw new IOException("'jupyter kernelspec' command failed with exit code " + exitCode + ": " + errorOutput);
+            }
+
+            
             if (output.length() > 0) {
                 JSONObject result = new JSONObject(output.toString());
-                System.out.println("Kernel discovery JSON: " + result.toString(2));
                 JSONObject kernelspecs = result.getJSONObject("kernelspecs");
                 
                 
@@ -343,21 +374,13 @@ public class JupyterKernelClient {
                     JSONObject spec = kernelspecs.getJSONObject(kernelName);
                     String displayName = spec.getJSONObject("spec").getString("display_name");
                     String resourceDir = spec.getString("resource_dir");
-
                     
                     KernelSpec kernelSpec = new KernelSpec(kernelName, displayName, resourceDir);
                     kernels.put(kernelName, kernelSpec);
                 }
-            } else {
-                
-                kernels.put("python3", new KernelSpec("python3", "Python 3", "/home/nick/myenv"));
             }
         } catch (Exception e) {
-            System.out.println("Error discovering kernels: " + e.getMessage());
-            e.printStackTrace();
-            
-            
-            kernels.put("python3", new KernelSpec("python3", "Python 3", "/home/nick/myenv"));
+            System.err.println("Could not discover kernels in " + envPath + ": " + e.getMessage());
         }
         
         return kernels;
@@ -514,61 +537,41 @@ public class JupyterKernelClient {
     }
 
     
-    public static JupyterKernelClient startKernel(String kernelName) throws Exception {
+    public static JupyterKernelClient startKernel(String kernelName, String envPath) throws Exception {
         System.out.println("Starting kernel: " + kernelName);
         
         String connectionFile = "kernel_" + UUID.randomUUID().toString() + ".json";
-        System.out.println("Connection file: " + connectionFile);
         
         try {
             
+            String jupyterPath = new File(envPath, "bin/jupyter").getAbsolutePath();
+
             ProcessBuilder pb = new ProcessBuilder(
-                "/home/nick/myenv/bin/jupyter", "kernel",
+                jupyterPath, "kernel",
                 "--kernel=" + kernelName,
                 "--KernelManager.connection_file=" + connectionFile
             );
             
             
             Map<String, String> env = pb.environment();
-
-            
-            String virtualEnvPath = detectVirtualEnvPath(env);
-            System.out.println("Detected virtual environment path: " + virtualEnvPath);
-            
-            if (virtualEnvPath != null) {
-                
-                String path = env.get("PATH");
-                env.put("PATH", virtualEnvPath + "/bin:" + (path != null ? path : ""));
-                
-                
-                env.put("VIRTUAL_ENV", virtualEnvPath);
-            }
-            
-            
-            env.remove("PYTHONHOME");
+            env.put("VIRTUAL_ENV", envPath);
+            env.put("PATH", new File(envPath, "bin").getAbsolutePath() + File.pathSeparator + env.get("PATH"));
+            env.remove("PYTHONHOME"); 
             env.remove("PYTHONPATH");
-            env.remove("PYTHONUSERBASE");
             
-            System.out.println("Environment:");
-            System.out.println("PATH: " + env.get("PATH"));
-            System.out.println("VIRTUAL_ENV: " + env.get("VIRTUAL_ENV"));
+            System.out.println("Using PATH: " + env.get("PATH"));
             
-            
-            pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
             pb.redirectError(ProcessBuilder.Redirect.INHERIT);
-            
             
             Process process = pb.start();
             
             
             Long pid = null;
             try {
-                
                 Method pidMethod = Process.class.getMethod("pid");
                 pid = (Long) pidMethod.invoke(process);
                 System.out.println("Kernel started with PID: " + pid);
             } catch (Exception e) {
-                
                 try {
                     Field pidField = process.getClass().getDeclaredField("pid");
                     pidField.setAccessible(true);
@@ -579,7 +582,6 @@ public class JupyterKernelClient {
                 }
             }
             
-            
             System.out.println("Waiting for connection file to be created: " + connectionFile);
             long startTime = System.currentTimeMillis();
             while (!Files.exists(Paths.get(connectionFile)) && System.currentTimeMillis() - startTime < 10000) {
@@ -587,9 +589,12 @@ public class JupyterKernelClient {
             }
             
             if (!Files.exists(Paths.get(connectionFile))) {
+                
+                if (!process.isAlive()) {
+                    throw new Exception("Kernel process exited prematurely with code " + process.exitValue() + ". Check console for errors.");
+                }
                 throw new Exception("Failed to create connection file within timeout");
             }
-            
             
             JupyterKernelClient newClient = new JupyterKernelClient(connectionFile);
             if (pid != null) {
@@ -598,85 +603,15 @@ public class JupyterKernelClient {
             }
 
             newClient.kernelProcess = process;
-
-            
             newClient.waitForKernelReady();
-
-            
             return newClient;
+
         } catch (Exception e) {
-            System.out.println("Error starting kernel: " + e.getMessage());
+            System.err.println("Error starting kernel: " + e.getMessage());
+            System.err.println("Please ensure Jupyter is installed and in your system's PATH.");
             e.printStackTrace();
             throw e;
         }
-    }
-
-    
-    private static String detectVirtualEnvPath(Map<String, String> env) {
-        
-        String venvPath = env.get("VIRTUAL_ENV");
-        if (venvPath != null && isValidVirtualEnv(venvPath)) {
-            System.out.println("Using current VIRTUAL_ENV: " + venvPath);
-            return venvPath;
-        }
-        
-        
-        String condaPrefix = env.get("CONDA_PREFIX");
-        if (condaPrefix != null && isValidVirtualEnv(condaPrefix)) {
-            System.out.println("Using CONDA_PREFIX: " + condaPrefix);
-            return condaPrefix;
-        }
-        
-        
-        try {
-            ProcessBuilder pb = new ProcessBuilder("python", "-c", 
-                "import sys; print(sys.prefix if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix) else '')");
-            Process process = pb.start();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            String pythonVenvPath = reader.readLine(); 
-            if (pythonVenvPath != null && !pythonVenvPath.trim().isEmpty() && isValidVirtualEnv(pythonVenvPath.trim())) {
-                System.out.println("Detected virtual env from Python: " + pythonVenvPath.trim());
-                return pythonVenvPath.trim();
-            }
-        } catch (Exception e) {
-            System.out.println("Could not detect virtual env from Python: " + e.getMessage());
-        }
-        
-        
-        String userHome = System.getProperty("user.home");
-        String[] commonVenvPaths = {
-            userHome + "/myenv",
-            userHome + "/venv",
-            userHome + "/.venv",
-            userHome + "/anaconda3",
-            userHome + "/miniconda3"
-        };
-        
-        for (String path : commonVenvPaths) {
-            if (isValidVirtualEnv(path)) {
-                System.out.println("Using fallback virtual env: " + path);
-                return path;
-            }
-        }
-        
-        System.out.println("Could not detect virtual environment path, using system Python");
-        return null;
-    }
-
-    private static boolean isValidVirtualEnv(String path) {
-        if (path == null || path.trim().isEmpty()) {
-            return false;
-        }
-        
-        
-        File venvDir = new File(path);
-        File pythonBin = new File(venvDir, "bin/python");
-        File pythonBin3 = new File(venvDir, "bin/python3");
-        File activateScript = new File(venvDir, "bin/activate");
-        
-        return venvDir.exists() && venvDir.isDirectory() && 
-            (pythonBin.exists() || pythonBin3.exists()) && 
-            activateScript.exists();
     }
 
     private void waitForKernelReady() throws Exception {
@@ -876,3 +811,4 @@ public class JupyterKernelClient {
         System.out.println("JupyterKernelClient closed in " + duration + " ms.");
     }
 }
+
