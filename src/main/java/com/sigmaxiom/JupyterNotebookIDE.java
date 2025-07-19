@@ -5438,7 +5438,7 @@ class CodeCell extends NotebookCell {
                 org.fife.ui.rsyntaxtextarea.TokenMakerFactory tmf = org.fife.ui.rsyntaxtextarea.TokenMakerFactory.getDefaultInstance();
                 if (tmf instanceof org.fife.ui.rsyntaxtextarea.AbstractTokenMakerFactory) {
                     ((org.fife.ui.rsyntaxtextarea.AbstractTokenMakerFactory) tmf)
-                        .putMapping("text/futhark", "com.example.FutharkTokenMaker");
+                        .putMapping("text/futhark", "com.sigmaxiom.FutharkTokenMaker");
                 }
 
                 
@@ -5457,7 +5457,7 @@ class CodeCell extends NotebookCell {
                 org.fife.ui.rsyntaxtextarea.TokenMakerFactory r_tmf = org.fife.ui.rsyntaxtextarea.TokenMakerFactory.getDefaultInstance(); 
                 if (r_tmf instanceof org.fife.ui.rsyntaxtextarea.AbstractTokenMakerFactory) { 
                     ((org.fife.ui.rsyntaxtextarea.AbstractTokenMakerFactory) r_tmf) 
-                        .putMapping("text/r", "com.example.RTokenMaker"); 
+                        .putMapping("text/r", "com.sigmaxiom.RTokenMaker"); 
                 } 
 
                 
