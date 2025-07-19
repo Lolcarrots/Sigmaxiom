@@ -1,0 +1,11 @@
+/target/
+
+/kernel-*.json
+
+__pycache__/
+*.pyc
+
+.vscode/
+
+*~
+*.swp
