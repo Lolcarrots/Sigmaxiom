@@ -1,6 +1,8 @@
 # Sigmaxiom v0.1.0
 Notebook IDE aimed at scientific computing with [LaTeX2Futhark](https://github.com/Lolcarrots/LaTeX2Futhark) transpiler integration, a built-in math editor, and pseudo-multi-language support.
 
+This is the "official" version of the Sigmaxiom IDE, no other repo is currently supported by me (Lolcarrots) (💀).
+
 # Dependencies
 sympy
 
