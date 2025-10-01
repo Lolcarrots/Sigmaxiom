@@ -7451,7 +7451,7 @@ private void transpileToFuthark() {
                     );
                     
                     
-                    LaTeX2FutharkCaller.TranspilationResult result = caller.transpileViaTempFile(latex, true);
+                    LaTeX2FutharkCaller.TranspilationResult result = caller.transpile(latex);
                     return result.getCompleteProgram();
                     
                 } catch (Exception e) {
@@ -7756,29 +7756,29 @@ private void transpileToFuthark() {
                 latexInput.setCaretPosition(pos + "_{".length());
             }
             else if (symbol.contains("\\begin{matrix}")) {
-                symbol = "\\begin{matrix}\n  a & b \\\\\n  c & d\n\\end{matrix}";
+                symbol = "\\begin{matrix} a & b \\\\ c & d \\end{matrix}";
                 latexInput.setText(text.substring(0, pos) + symbol + text.substring(pos));
                 latexInput.setCaretPosition(pos + "\\begin{matrix}\n  ".length());
             }
             else if (symbol.contains("\\begin{pmatrix}")) {
-                symbol = "\\begin{pmatrix}\n  a & b \\\\\n  c & d\n\\end{pmatrix}";
+                symbol = "\\begin{pmatrix} a & b \\\\  c & d \\end{pmatrix}";
                 latexInput.setText(text.substring(0, pos) + symbol + text.substring(pos));
-                latexInput.setCaretPosition(pos + "\\begin{pmatrix}\n  ".length());
+                latexInput.setCaretPosition(pos + "\\begin{pmatrix}  ".length());
             }
             else if (symbol.contains("\\begin{bmatrix}")) {
-                symbol = "\\begin{bmatrix}\n  a & b \\\\\n  c & d\n\\end{bmatrix}";
+                symbol = "\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}";
                 latexInput.setText(text.substring(0, pos) + symbol + text.substring(pos));
-                latexInput.setCaretPosition(pos + "\\begin{bmatrix}\n  ".length());
+                latexInput.setCaretPosition(pos + "\\begin{bmatrix} ".length());
             }
             else if (symbol.contains("\\begin{vmatrix}")) {
-                symbol = "\\begin{vmatrix}\n  a & b \\\\\n  c & d\n\\end{vmatrix}";
+                symbol = "\\begin{vmatrix} a & b \\\\ c & d \\end{vmatrix}";
                 latexInput.setText(text.substring(0, pos) + symbol + text.substring(pos));
-                latexInput.setCaretPosition(pos + "\\begin{vmatrix}\n  ".length());
+                latexInput.setCaretPosition(pos + "\\begin{vmatrix} ".length());
             }
             else if (symbol.contains("\\begin{cases}")) {
-                symbol = "\\begin{cases}\n  f(x) & \\text{if } x > 0 \\\\\n  g(x) & \\text{if } x < 0\n\\end{cases}";
+                symbol = "\\begin{cases} f(x) & \\text{if } x > 0 \\\\ g(x) & \\text{if } x < 0 \\end{cases}";
                 latexInput.setText(text.substring(0, pos) + symbol + text.substring(pos));
-                latexInput.setCaretPosition(pos + "\\begin{cases}\n  ".length());
+                latexInput.setCaretPosition(pos + "\\begin{cases} ".length());
             }
             else if (symbol.contains("\\overline") || symbol.contains("\\underline") || 
                      symbol.contains("\\widehat") || symbol.contains("\\widetilde") ||
@@ -7996,8 +7996,8 @@ private void transpileToFuthark() {
                 "Sqrt", "\\sqrt{}", 
                 "Power", "^{}", 
                 "Subscript", "_{}", 
-                "Matrix", "\\begin{pmatrix}\n  a & b \\\\\n  c & d\n\\end{pmatrix}",
-                "Cases", "\\begin{cases}\n  f(x) & x > 0 \\\\\n  g(x) & x < 0\n\\end{cases}"
+                "Matrix", "\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}",
+                "Cases", "\\begin{cases} f(x) & x > 0 \\\\ g(x) & x < 0 \\end{cases}"
             };
             
             for (int i = 0; i < quickButtons.length; i += 2) {
@@ -8066,12 +8066,12 @@ private void transpileToFuthark() {
             
             symbolTabs.addTab("Structures", createSymbolPanel(new String[][] {
                 {"a/b", "\\frac{}{}"}, {"√", "\\sqrt{}"}, {"∛", "\\sqrt[3]{}"}, {"x²", "^{2}"}, {"x₂", "_{2}"}, {"x̄", "\\bar{x}"}, {"x̂", "\\hat{x}"}, {"x̃", "\\tilde{x}"},
-                {"Matrix", "\\begin{matrix}\n  a & b \\\\\n  c & d\n\\end{matrix}"},
-                {"Pmatrix", "\\begin{pmatrix}\n  a & b \\\\\n  c & d\n\\end{pmatrix}"},
-                {"Bmatrix", "\\begin{bmatrix}\n  a & b \\\\\n  c & d\n\\end{bmatrix}"},
-                {"Vmatrix", "\\begin{vmatrix}\n  a & b \\\\\n  c & d\n\\end{vmatrix}"},
-                {"Cases", "\\begin{cases}\n  f(x) & x > 0 \\\\\n  g(x) & x < 0\n\\end{cases}"},
-                {"Array", "\\begin{array}{cc}\n  a & b \\\\\n  c & d\n\\end{array}"}
+                {"Matrix", "\\begin{matrix} a & b \\\\ c & d \\end{matrix}"},
+                {"Pmatrix", "\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}"},
+                {"Bmatrix", "\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}"},
+                {"Vmatrix", "\\begin{vmatrix} a & b \\\\ c & d \\end{vmatrix}"},
+                {"Cases", "\\begin{cases} f(x) & x > 0 \\\\ g(x) & x < 0 \\end{cases}"},
+                {"Array", "\\begin{array}{cc} a & b \\\\ c & d \\end{array}"}
             }));
             
             

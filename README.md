@@ -1,14 +1,10 @@
-# Sigmaxiom v0.1.0
+# Sigmaxiom v0.1.3
 Notebook IDE aimed at scientific computing with [LaTeX2Futhark](https://github.com/Lolcarrots/LaTeX2Futhark) transpiler integration, a built-in math editor, and pseudo-multi-language support.
 
 This is the "official" version of the Sigmaxiom IDE, no other repo is currently supported by me (Lolcarrots) (💀).
 
 # Dependencies
-sympy
-
-antlr4-python3-runtime
-
-LaTeXML + latexmlmath
+lark
 
 futhark-ffi
 
@@ -18,10 +14,7 @@ Maven
 
 # Installation
 ```bash
-pip3 install sympy antlr4-python3-runtime futhark-ffi ipykernel
-```
-```bash
-sudo apt install latexml
+pip3 install lark futhark-ffi ipykernel
 ```
 ```bash
 sudo apt install maven
